@@ -16,7 +16,9 @@
   var TYPES = ['single', 'multi', 'scale', 'rank', 'rating-grid', 'select', 'number', 'text', 'longtext', 'info', 'image-choice'];
   var MAXLEN = 2000;
 
-  var CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+  var ZOOM_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2M11 8.5v5M8.5 11h5"/></svg>';
+  var TRY_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6.5" y="2.5" width="11" height="19" rx="3"/><path d="M10.5 18.5h3"/></svg>';
+  var CHECK ='<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
 
   /** 섹션을 펼쳐 문항 목록으로. 모르는 type 은 건너뛴다(콘솔 경고). */
   function normalize(content) {
@@ -34,8 +36,13 @@
         // image-choice 의 그림 보기: { id, label, image } (SCHEMA §3, 11-19). 그림 없는 보기는 options 로 아래에.
         if (n.type === 'image-choice') {
           n.choices = (Array.isArray(q.choices) ? q.choices : []).filter(function (c) { return c && c.label; })
-            .map(function (c) { return { id: String(c.id || c.label), label: String(c.label), image: c.image ? String(c.image) : '' }; });
+            .map(function (c) { return { id: String(c.id || c.label), label: String(c.label), image: c.image ? String(c.image) : '', try: c.try ? String(c.try) : '' }; });
         }
+        // comment: true | { placeholder, on:[보기…] } — 보기 아래 선택 의견 칸. on 의 보기(기본 '잘 모르겠어요')를 고르면 칸이 저절로 열린다.
+        if (q.comment && n.type === 'single') {
+          var cm = typeof q.comment === 'object' ? q.comment : {};
+          n.comment = { placeholder: cm.placeholder ? String(cm.placeholder) : '', on: Array.isArray(cm.on) ? cm.on.map(String) : ['잘 모르겠어요'] };
+        } else delete n.comment;
         // select 의 보기: { v: 저장값, label: 보이는 글 }.
         // range 는 숫자만 저장하고 suffix("세")는 화면에만 붙인다 (메인 결정 26-11-19: 나이 24 → 24).
         if (n.type === 'select') {
@@ -232,6 +239,9 @@
         return;
       }
       // image-choice + shuffle: 보여 준 순서를 함께 ("디자인 B, 디자인 A"). 건너뛴 경우에도 본 순서는 남긴다.
+      // 선택 의견: 열 이름 "<key> · 의견". 비었으면 보내지 않는다. 숨겨진 문항은 위에서 이미 빠진다.
+      var cmt = q.comment ? String(state.others[q.id + CMT] || '').trim().slice(0, 300) : '';
+      if (cmt) out[q.key + ' · 의견'] = cmt;
       if (q.type === 'image-choice' && q.shuffle && state.orders && Array.isArray(state.orders[q.id])) {
         out[q.key + ' · 순서'] = choiceOrder(q, state).map(function (c) { return c.label; }).join(', ');
       }
@@ -247,6 +257,7 @@
   /* ── 그리기 ─────────────────────────────────────────── */
 
   var uid = 0;
+  var CMT = '#c';   // 선택 의견은 state.others[문항id + '#c'] 에 둔다 (진행 저장에 함께 들어간다)
 
   /**
    * 문항의 입력 부분만 그린다(문구·설명은 페이지가 그린다).
@@ -303,6 +314,27 @@
       return row;
     }
 
+    /** 선택 의견 칸: [＋ 의견 남기기 (선택)] 링크 → 여러 줄 입력칸 */
+    function commentBox() {
+      var key = q.id + CMT;
+      var box = el('div', { class: 'cm-wrap' });
+      var link = el('button', { type: 'button', class: 'cm-link', text: '＋ 의견 남기기 (선택)' });
+      var hint = el('p', { class: 'cm-hint' });
+      var ta = el('textarea', { class: 'field cm-field', maxlength: '300', rows: '3', 'aria-label': '의견 (선택)', placeholder: q.comment.placeholder || '한두 문장이면 충분해요' });
+      var area = el('div', { class: 'cm-area', hidden: true }, [hint, ta]);
+      ta.value = state.others[key] || '';
+      ta.addEventListener('input', function () { state.others[key] = ta.value; onChange({ typing: true }); });
+      box.open = function (ask) {
+        hint.textContent = ask ? '어떤 점이 애매했는지 적어 주면 큰 도움이 돼요 · 안 적어도 돼요' : '하고 싶은 말이 있으면 적어 주세요 · 안 적어도 돼요';
+        area.hidden = false; link.hidden = true;
+      };
+      link.addEventListener('click', function () { box.open(false); try { ta.focus(); } catch (e) { /* 무시 */ } });
+      if (ta.value) box.open(false);
+      box.appendChild(link);
+      box.appendChild(area);
+      return box;
+    }
+
     function single() {
       var opts = q.options.slice();
       var values = opts.slice();
@@ -315,13 +347,17 @@
         row.input.addEventListener('change', function () {
           rows.forEach(function (r) { r.classList.toggle('on', r.input.checked); });
           if (box) { box.hidden = val !== OTHER; if (val === OTHER) box.focusInput(); }
-          set(val, { advance: val !== OTHER });
+          var ask = q.comment && q.comment.on.indexOf(String(val)) >= 0;   // '잘 모르겠어요' 는 적을 기회를 주려고 자동으로 넘기지 않는다
+          if (ask && cbox) cbox.open(true);
+          set(val, { advance: val !== OTHER && !ask });
         });
         list.appendChild(row);
         return row;
       });
       wrap.appendChild(list);
       if (box) wrap.appendChild(box);
+      var cbox = q.comment ? commentBox() : null;
+      if (cbox) wrap.appendChild(cbox);
       wrap.pick = function (i) { if (rows[i]) rows[i].input.click(); };
       return wrap;
     }
@@ -346,13 +382,21 @@
         var card = el('div', { class: 'ic-card' + (cur === c.label ? ' on' : '') });
         var shot = el('button', { type: 'button', class: 'ic-shot', 'aria-label': c.label + ' 크게 보기' });
         var ph = el('span', { class: 'ic-ph' }, [el('b', { text: c.label }), el('small', { text: '그림 준비 중' })]);
+        // 직접 써보기: 보기에 try(앱 주소 꼬리)가 있고 이 페이지가 체험창을 열 줄 알 때만
+        var tryBtn = null, tryFn = null;
+        if (c.try && M.tryApp) {
+          tryBtn = el('button', { type: 'button', class: 'ic-try', html: TRY_ICON + '<span>직접 써보기</span>' });
+          tryFn = function () { M.tryApp({ query: c.try, label: c.label, opener: tryBtn }); };
+          tryBtn.addEventListener('click', tryFn);
+        }
         if (c.image) {
           var img = el('img', { src: M.root + c.image, alt: c.label + ' 화면', loading: 'lazy', decoding: 'async' });
           img.addEventListener('error', function () { img.remove(); shot.classList.add('noimg'); shot.appendChild(ph); });
           shot.appendChild(img);
+          shot.appendChild(el('span', { class: 'ic-zoom', 'aria-hidden': 'true', html: ZOOM_ICON + '크게 보기' }));
           shot.addEventListener('click', function () {
             if (shot.classList.contains('noimg')) { choose(c.label); return; }
-            lightbox(M.root + c.image, c.label, function () { choose(c.label); });
+            lightbox(M.root + c.image, c.label, function () { choose(c.label); }, tryFn);
           });
         } else {
           shot.classList.add('noimg');
@@ -370,6 +414,7 @@
         ]);
         input.addEventListener('change', function () { if (input.checked) choose(c.label); });
         card.appendChild(shot);
+        if (tryBtn) card.appendChild(tryBtn);
         card.appendChild(pick);
         grid.appendChild(card);
         picks.push({ label: c.label, input: input, card: card, btnText: btnText, index: i });
@@ -608,7 +653,7 @@
       if (!long && q.validate === 'phone-or-email') return contactField();
       var cur = state.answers[q.id] || '';
       var f = el(long ? 'textarea' : 'input', {
-        class: 'field', maxlength: String(MAXLEN), autocomplete: 'off', placeholder: q.placeholder || (long ? '편하게 적어 주세요' : ''),
+        class: 'field', maxlength: String(Number(q.maxLength) > 0 ? Math.min(Number(q.maxLength), MAXLEN) : MAXLEN), autocomplete: 'off', placeholder: q.placeholder || (long ? '편하게 적어 주세요' : ''),
         'aria-label': q.text, rows: long ? '4' : null, type: long ? null : 'text', enterkeyhint: long ? null : 'next'
       });
       f.value = cur;
@@ -710,6 +755,11 @@
       if (keep === null) delete a[id]; else a[id] = keep;
     });
     Object.keys(o).forEach(function (id) {
+      if (/#c$/.test(id)) {   // 선택 의견: 그 문항이 지금도 comment 문항이면 남긴다
+        var cq = form.byId[id.slice(0, -2)];
+        if (!(cq && cq.comment) || typeof o[id] !== 'string' || !o[id].trim()) delete o[id];
+        return;
+      }
       var v = a[id];
       var has = v === OTHER || (Array.isArray(v) && v.indexOf(OTHER) >= 0);
       if (!has) delete o[id];
@@ -730,10 +780,15 @@
   }
 
   /** 화면 캡처 크게 보기 — 아무 데나 누르거나 Esc 로 닫는다 */
-  function lightbox(src, label, onPick) {
+  function lightbox(src, label, onPick, onTry) {
     var opener = document.activeElement;
     var close = el('button', { type: 'button', class: 'btn small', text: '닫기' });
     var acts = el('div', { class: 'lb-acts' }, [close]);
+    if (onTry) {
+      var tryBtn = el('button', { type: 'button', class: 'btn small', html: TRY_ICON + '<span>직접 써보기</span>' });
+      tryBtn.addEventListener('click', function (e) { e.stopPropagation(); done(); onTry(); });   // 체험창이 포커스를 [직접 써보기] 카드 버튼으로 돌려준다
+      acts.insertBefore(tryBtn, close);
+    }
     if (onPick) {
       var pickBtn = el('button', { type: 'button', class: 'btn small primary', text: '이걸로 고르기' });
       pickBtn.addEventListener('click', function (e) { e.stopPropagation(); done(); onPick(); });

@@ -24,6 +24,8 @@
    *   onOpen      처음 열었을 때 (방문 기록용)
    *   onRoute     화면이 바뀔 때 (label, routes)
    *   onMount     iframe 을 만들었을 때 (mode)
+   *   onAction    앱 action 이 올 때마다 (label) — 같은 행동 연속 중복도 그대로 넘긴다
+   * open(opts): opts.query 는 앱 주소에 덧붙일 꼬리(예: 'go=club&design=b'), opts.opener 는 닫을 때 포커스를 돌려줄 버튼
    */
   function Trial(o) {
     var self = this;
@@ -42,11 +44,13 @@
     var paused = false;
     var inView = true;
     var ready = false;
+    var extra = '';             // open(opts.query) — 앱 주소에 덧붙일 꼬리
+    var openerOpt = null;       // open(opts.opener)
 
     function save() { if (o.statsKey) M.local.set(o.statsKey, stats); }
 
     function appUrl() {
-      return M.root + (M.stub ? 'dev/app-stub.html' : 'app/') + '?entry=' + encodeURIComponent(o.entry || 'user');
+      return M.root + (M.stub ? 'dev/app-stub.html' : 'app/') + '?entry=' + encodeURIComponent(o.entry || 'user') + (extra ? '&' + extra : '');
     }
 
     /* ── 시간 재기 ── */
@@ -90,6 +94,7 @@
         // _행동: 일어난 순서대로. 같은 행동이 연달아 오면 한 번만 (SCHEMA §5, 11-19)
         if (/^club_design/.test(String(d.name || ''))) settleHint();
         var name = String(d.label || d.name || '').slice(0, 30);
+        if (name && o.onAction) o.onAction(name);
         if (name && stats.actions[stats.actions.length - 1] !== name && stats.actions.length < 80) { stats.actions.push(name); save(); }
       }
     });
@@ -215,7 +220,8 @@
      */
     var ICON_X = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>';
     var ICON_EXPAND = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"/></svg>';
-    var ICON_HANDLE = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>';
+    var ICON_X_SM = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>';
+    var ICON_HANDLE ='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>';
 
     var immersive = false;
     var hintEl = null;
@@ -223,11 +229,22 @@
     function settleHint() { if (hintEl && o.firstHint && hintEl.textContent !== (o.endHint || '')) hintEl.textContent = o.endHint || ''; }
     var fsOn = false;          // 브라우저 전체화면(requestFullscreen)을 걸었나
     var handleTip = null;
+    // ⤢ 안내 말풍선 — 겹침창을 처음 열 때 ⤢ 아래에 뜬다. ✕ 를 누르거나 ⤢ 를 한 번 쓰면 사라지고, 이 기기에선 다시 안 나온다
+    var FS_TIP_KEY = 'moyeo.trial.fsTip';
+    var fsTip = null;
+    var fullBtn = null;
+    function hideFsTip() {
+      M.local.set(FS_TIP_KEY, 1);
+      if (fullBtn) fullBtn.classList.remove('attn');
+      if (fsTip && fsTip.parentNode) fsTip.parentNode.removeChild(fsTip);
+      fsTip = null;
+    }
 
     function fsElement() { return document.fullscreenElement || document.webkitFullscreenElement || null; }
 
     function enterImmersive() {
       if (!overlay || immersive) return;
+      if (fsTip) hideFsTip();   // ⤢ 를 써 봤으니 안내는 할 일을 다 했다
       immersive = true;
       overlay.classList.add('immersive');
       var req = overlay.requestFullscreen || overlay.webkitRequestFullscreen;
@@ -269,7 +286,7 @@
     function openOverlay() {
       if (overlay) return;
       mode = 'overlay';
-      opener = document.activeElement;
+      opener = openerOpt || document.activeElement;
       nowLabel = el('b', { text: '' });
       var close = el('button', { type: 'button', class: 'tb-btn', 'aria-label': '체험 닫기', html: ICON_X + '<span>닫기</span>' });
       close.addEventListener('click', function () { self.close(); });
@@ -295,6 +312,14 @@
         kids.push(el('div', { class: 'trial-foot' }, [hintEl, endBtn]));
       }
       kids.push(handle, handleTip);
+      fullBtn = full;
+      if (!M.local.get(FS_TIP_KEY)) {
+        var tipX = el('button', { type: 'button', class: 'fs-tip-x', 'aria-label': '안내 닫기', html: ICON_X_SM });
+        tipX.addEventListener('click', hideFsTip);
+        fsTip = el('div', { class: 'fs-tip' }, [el('span', { text: '누르면 전체화면으로 볼 수 있어요' }), tipX]);
+        full.classList.add('attn');
+        kids.push(fsTip);
+      }
       overlay = el('div', { class: 'trial-overlay', role: 'dialog', 'aria-modal': 'true', 'aria-label': o.entry === 'owner' ? '사장님 화면 체험' : '앱 체험' }, kids);
       document.body.appendChild(overlay);
       document.documentElement.classList.add('lock');
@@ -307,6 +332,8 @@
       if (!overlay) return false;
       exitImmersive();
       handleTip = null;
+      fsTip = null;      // 닫기만 하고 ✕ 는 안 눌렀으면 다음에 열 때 또 뜬다
+      fullBtn = null;
       hintEl = null;
       teardownFrame();
       overlay.parentNode.removeChild(overlay);
@@ -315,7 +342,12 @@
       document.documentElement.classList.remove('lock');
       tick();
       save();
-      if (opener && opener.focus) { try { opener.focus({ preventScroll: true }); } catch (e) { /* 무시 */ } }
+      if (opener && opener.focus) {
+        var back = opener;
+        var refocus = function () { try { back.focus({ preventScroll: true }); } catch (e) { /* 무시 */ } };
+        refocus();
+        setTimeout(function () { if (!overlay && back.isConnected && document.activeElement !== back) refocus(); }, 60);   // 떼어 낸 iframe 이 쥔 포커스가 뒤늦게 body 로 풀리는 경우
+      }
       return true;
     }
 
@@ -346,7 +378,10 @@
       if (immersive) exitImmersive(); else self.close();
     });
 
-    self.open = function () {
+    self.open = function (opts) {
+      // 꼬리는 영문·숫자·_=&.- 만 받는다
+      extra = opts && typeof opts.query === 'string' && /^[A-Za-z0-9_=&.\-]+$/.test(opts.query) ? opts.query : '';
+      openerOpt = (opts && opts.opener) || null;
       if (o.frameHost && !o.forceOverlay && M.isDesktopWide()) openFrame();
       else openOverlay();
     };

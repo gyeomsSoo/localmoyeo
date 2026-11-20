@@ -78,7 +78,7 @@
   M.page = document.documentElement.getAttribute('data-page') || '';
   if (qs.get('reset') === '1') {
     if (M.page === 'user') {
-      ['moyeo.progress.user', 'moyeo.done.user', 'moyeo.trial.user', 'moyeo.sid'].forEach(function (k) { M.local.del(k); });
+      ['moyeo.progress.user', 'moyeo.done.user', 'moyeo.trial.user', 'moyeo.trylog.user', 'moyeo.sid'].forEach(function (k) { M.local.del(k); });
       ['방문', '체험 시작', '설문 시작'].forEach(function (s) { M.session.del('moyeo.visit.' + s); });
       M.session.del('moyeo.testsid');
     } else if (M.page === 'owner') {

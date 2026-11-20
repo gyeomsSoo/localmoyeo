@@ -8,6 +8,7 @@
   var PROGRESS = 'moyeo.progress.user';
   var DONE = 'moyeo.done.user';
   var TRIAL = 'moyeo.trial.user';
+  var TRY_LOG = 'moyeo.trylog.user';   // 설문 도중 "직접 써보기" 기록 (_설문중체험) — 홈 체험 기록(TRIAL)과 섞지 않는다
 
   var homeView = M.$('#home');
   var surveyView = M.$('#survey');
@@ -48,6 +49,32 @@
     },
     onEnd: function (o) { go('survey', o && o.fromOverlay ? 'replace' : 'push'); }
   });
+
+  /* ── 설문 도중 직접 써보기 (A3 의 [직접 써보기]) ──
+   * 홈 체험(trial)과 다른 인스턴스 — 기록은 통계(_체험초·_본화면·_행동)가 아니라 _설문중체험 한 칸에만 남는다.
+   * 겹침창을 닫으면(닫기 · 뒤로가기 · 돌아가기) 설문 카드는 그대로다. */
+  function tryLog() { var l = M.local.get(TRY_LOG); return Array.isArray(l) ? l : []; }
+  function pushTryLog(label, always) {
+    var l = tryLog();
+    if (!label || l.length >= 80 || (!always && l[l.length - 1] === label)) return;
+    l.push(label);
+    M.local.set(TRY_LOG, l);
+  }
+  var surveyTrial = new M.Trial({
+    entry: 'user',
+    forceOverlay: true,
+    nowPrefix: '앱 체험 중 ·',
+    endLabel: '돌아가기',
+    endHint: 'A·B를 바꿔 보고 돌아와 골라 주세요',
+    onAction: function (label) { pushTryLog(label, false); },
+    // 겹침창이 뒤로가기 한 칸을 넣어 뒀으니 함께 걷는다 (owner.js 와 같은 방식) — 설문 카드는 그대로
+    onEnd: function () { if (history.state && history.state.moyeo === 'trial') history.back(); }
+  });
+  M.tryApp = function (o) {
+    if (!o || !o.query) return;
+    pushTryLog(o.label + ' 직접 써보기', true);
+    surveyTrial.open({ query: o.query, opener: o.opener });
+  };
 
   M.$('#poster').addEventListener('click', function () { trial.open(); });
 
@@ -122,7 +149,7 @@
   }
 
   window.addEventListener('popstate', function (e) {
-    if (trial.isOverlayOpen()) return;   // 겹침창이 스스로 닫는다
+    if (trial.isOverlayOpen() || surveyTrial.isOverlayOpen()) return;   // 겹침창이 스스로 닫는다
     var s = e.state && e.state.moyeo;
     var next = s === 'survey' || (!s && location.hash === '#survey') ? 'survey' : 'home';
     if (next !== view) show(next);
@@ -439,6 +466,7 @@
   /* 키보드: 숫자로 고르기 · Enter 로 다음 */
   document.addEventListener('keydown', function (e) {
     if (view !== 'survey' || !content || cur === 'outro') return;
+    if (surveyTrial.isOverlayOpen()) return;   // 체험창이 떠 있는 동안 설문 키 입력은 막는다
     if (e.altKey || e.ctrlKey || e.metaKey) {
       if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); next(); }
       return;
@@ -466,6 +494,7 @@
     answers['_체험초'] = t.seconds;
     answers['_본화면'] = t.routes.join(' → ');
     answers['_행동'] = t.actions.join(' → ');
+    answers['_설문중체험'] = tryLog().join(' → ');   // user 건에만. contact 건에는 넣지 않는다
     answers['_소요초'] = startedAt ? Math.max(1, Math.round((Date.now() - startedAt) / 1000)) : 0;
 
     M.submit('user', answers, { meta: { kind: 'user' } });
@@ -482,6 +511,7 @@
 
     M.local.set(DONE, { at: Date.now(), id: content.id });
     M.local.del(PROGRESS);
+    M.local.del(TRY_LOG);
     cur = 'outro';
     drawSurvey('fwd');
     window.scrollTo(0, 0);
@@ -500,10 +530,13 @@
   function drawOutro() {
     nav.hidden = true;
     var o = content.outro || {};
+    // greet: true 인 문항(별명)에 답했으면 감사 제목 앞에 한 번만 부른다 — 화면에만 쓰고 따로 보내지 않는다
+    var gq = form.list.filter(function (q) { return q.greet; })[0];
+    var gname = gq && typeof state.answers[gq.id] === 'string' ? state.answers[gq.id].trim() : '';
     sendState = el('p', { class: 'send-state', role: 'status' });
     var card = el('section', { class: 'card outro', tabindex: '-1' }, [
       el('div', { class: 'stamp-wrap', html: STAMP }),
-      el('h2', { text: o.title || '고마워요' }),
+      el('h2', { text: (gname ? gname + '님, ' : '') + (o.title || '고마워요') }),
       o.body ? el('p', { class: 'body', text: o.body }) : null,
       sendState
     ]);
