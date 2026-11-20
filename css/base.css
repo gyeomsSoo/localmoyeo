@@ -627,7 +627,8 @@ html.lock, html.lock body { overflow: hidden; }
 /* 연락처 칸: 휴대폰/이메일 고르기 (키보드가 바뀐다) */
 .cmode { display: flex; gap: 6px; margin-bottom: 10px; }
 .cmode button {
-  min-height: 44px; padding: 0 14px;
+  flex: 1 1 auto; white-space: nowrap;
+  min-height: 44px; padding: 0 10px;
   border: 0; border-radius: 11px;
   background: var(--bg); color: var(--sub);
   font-size: 14.5px; font-weight: 700;

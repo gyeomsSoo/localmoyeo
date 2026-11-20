@@ -103,9 +103,17 @@
    *  휴대폰: 숫자만 남겨 01[016789] 로 시작하는 10~11자리 → 010-1234-5678 꼴. +82 10… 도 받는다.
    *  이메일: 간단한 꼴 검사(이름@도메인.끝). 빈칸은 지운다.
    */
-  function contactValue(raw) {
+  function contactValue(raw, insta) {
     var s = String(raw === undefined || raw === null ? '' : raw).trim();
     if (!s) return { ok: false, empty: true };
+    if (insta) {   // validate: "contact" - 인스타그램 아이디도 받는다. @아이디 · instagram.com/아이디 → 소문자 @아이디
+      var lm = s.match(/^(?:https?:\/\/)?(?:www\.)?instagram\.com\/@?([^\/?#\s]*)/i);
+      var id = lm ? lm[1] : (s.charAt(0) === '@' ? s.slice(1).replace(/\s+/g, '') : null);
+      if (id !== null) {
+        return /^[A-Za-z0-9._]{1,30}$/.test(id) && !/\.$/.test(id) && id.indexOf('..') < 0
+          ? { ok: true, value: '@' + id.toLowerCase(), kind: 'insta' } : { ok: false, kind: 'insta' };
+      }
+    }
     if (s.indexOf('@') >= 0) {
       var e = s.replace(/\s+/g, '');
       return /^[^@\s]+@[^@\s.]+(\.[^@\s.]+)*\.[A-Za-z]{2,}$/.test(e) ? { ok: true, value: e, kind: 'email' } : { ok: false, kind: 'email' };
@@ -122,7 +130,7 @@
 
   /** 보낼 값: validate 문항은 정리된 꼴로 */
   function finalValue(q, v) {
-    if (q.validate === 'phone-or-email') { var r = contactValue(v); return r.ok ? r.value : String(v).trim(); }
+    if (q.validate === 'phone-or-email' || q.validate === 'contact') { var r = contactValue(v, q.validate === 'contact'); return r.ok ? r.value : String(v).trim(); }
     return typeof v === 'string' ? v.trim() : v;
   }
 
@@ -167,12 +175,13 @@
       if (q.min && n < q.min) return q.min + '개 이상 골라 주세요';
       if (q.max && n > q.max) return q.max + '개까지만 골라 주세요';
     }
-    if (q.validate === 'phone-or-email') {
-      var cr = contactValue(v);
+    if (q.validate === 'phone-or-email' || q.validate === 'contact') {
+      var cr = contactValue(v, q.validate === 'contact');
       if (!cr.ok) {
+        if (cr.kind === 'insta') return '인스타그램 아이디를 다시 확인해 주세요 (예: @moyeo_jecheon)';
         if (cr.kind === 'email') return '이메일 주소를 다시 확인해 주세요 (예: name@example.com)';
         if (cr.kind === 'phone') return '휴대폰 번호를 다시 확인해 주세요 (예: 010-1234-5678)';
-        return '휴대폰 번호나 이메일 주소로 적어 주세요';
+        return q.validate === 'contact' ? '휴대폰 번호, 이메일, 인스타그램 아이디 중 하나로 적어 주세요' : '휴대폰 번호나 이메일 주소로 적어 주세요';
       }
     }
     if (q.type === 'number') {
@@ -650,7 +659,7 @@
     }
 
     function text(long) {
-      if (!long && q.validate === 'phone-or-email') return contactField();
+      if (!long && (q.validate === 'phone-or-email' || q.validate === 'contact')) return contactField();
       var cur = state.answers[q.id] || '';
       var f = el(long ? 'textarea' : 'input', {
         class: 'field', maxlength: String(Number(q.maxLength) > 0 ? Math.min(Number(q.maxLength), MAXLEN) : MAXLEN), autocomplete: 'off', placeholder: q.placeholder || (long ? '편하게 적어 주세요' : ''),
@@ -675,7 +684,8 @@
     /* 연락처 칸: [휴대폰 번호 | 이메일] 을 고르면 폰 키보드가 숫자판/이메일판으로 바뀐다. 어느 쪽에 적어도 검사는 둘 다 받는다. */
     function contactField() {
       var cur = state.answers[q.id] || '';
-      var mode = /@/.test(cur) ? 'email' : 'phone';
+      var withInsta = q.validate === 'contact';
+      var mode = withInsta && contactValue(cur, true).kind === 'insta' ? 'insta' : (/@/.test(cur) ? 'email' : 'phone');
       var f = el('input', {
         class: 'field', type: 'text', maxlength: '100', autocapitalize: 'off', autocorrect: 'off', spellcheck: 'false',
         enterkeyhint: 'done', 'aria-label': q.text
@@ -683,26 +693,38 @@
       f.value = cur;
       var bPhone = el('button', { type: 'button', text: '휴대폰 번호' });
       var bMail = el('button', { type: 'button', text: '이메일' });
+      var bInsta = withInsta ? el('button', { type: 'button', text: '인스타그램' }) : null;
       function setMode(m) {
         mode = m;
-        f.setAttribute('inputmode', m === 'email' ? 'email' : 'tel');
-        f.setAttribute('autocomplete', m === 'email' ? 'email' : 'tel');
-        f.placeholder = q.placeholder && m === 'phone' ? q.placeholder : (m === 'email' ? 'name@example.com' : '010-1234-5678');
+        f.setAttribute('inputmode', m === 'email' ? 'email' : (m === 'insta' ? 'text' : 'tel'));
+        f.setAttribute('autocomplete', m === 'email' ? 'email' : (m === 'insta' ? 'off' : 'tel'));
+        f.setAttribute('autocapitalize', 'off'); f.setAttribute('autocorrect', 'off');
+        f.placeholder = m === 'insta' ? '@아이디' : (q.placeholder && m === 'phone' ? q.placeholder : (m === 'email' ? 'name@example.com' : '010-1234-5678'));
         bPhone.setAttribute('aria-pressed', m === 'phone' ? 'true' : 'false');
         bMail.setAttribute('aria-pressed', m === 'email' ? 'true' : 'false');
+        if (bInsta) bInsta.setAttribute('aria-pressed', m === 'insta' ? 'true' : 'false');
       }
-      bPhone.addEventListener('click', function () { setMode('phone'); f.focus(); });
-      bMail.addEventListener('click', function () { setMode('email'); f.focus(); });
+      // 인스타 모드에서는 @ 가 없어도 저장할 때 붙인다
+      function withAt(v) {
+        if (v && mode === 'insta' && v.charAt(0) !== '@' && !/instagram\.com\//i.test(v)) return '@' + v;
+        return v;
+      }
+      function store() { var v = withAt(f.value.trim()); set(v ? v : null, { typing: true }); }
+      bPhone.addEventListener('click', function () { setMode('phone'); store(); f.focus(); });
+      bMail.addEventListener('click', function () { setMode('email'); store(); f.focus(); });
+      if (bInsta) bInsta.addEventListener('click', function () { setMode('insta'); store(); f.focus(); });
       setMode(mode);
       f.addEventListener('input', function () {
-        if (f.value.indexOf('@') >= 0 && mode !== 'email') setMode('email');
-        set(f.value.trim() ? f.value : null, { typing: true });
+        var t = f.value.trim();
+        if (withInsta && mode !== 'insta' && (t.charAt(0) === '@' || /instagram\.com\//i.test(t))) setMode('insta');
+        else if (t.indexOf('@') >= 0 && mode === 'phone') setMode('email');
+        store();
       });
       f.addEventListener('blur', function () {             // 맞는 꼴이면 보기 좋게 맞춰 준다 (01012345678 → 010-1234-5678)
-        var r = contactValue(f.value);
+        var r = contactValue(withAt(f.value.trim()), withInsta);
         if (r.ok && r.value !== f.value) { f.value = r.value; set(r.value, { typing: true }); }
       });
-      wrap.appendChild(el('div', { class: 'cmode', role: 'group', 'aria-label': '연락 방법' }, [bPhone, bMail]));
+      wrap.appendChild(el('div', { class: 'cmode', role: 'group', 'aria-label': '연락 방법' }, bInsta ? [bPhone, bMail, bInsta] : [bPhone, bMail]));
       wrap.appendChild(f);
       return wrap;
     }
