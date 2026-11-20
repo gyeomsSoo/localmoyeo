@@ -11,7 +11,8 @@
     entry: 'owner',
     forceOverlay: true,
     nowPrefix: '사장님 화면 ·',
-    endLabel: '다 봤어요, 돌아가기',
+    endLabel: '돌아가기',
+    endHint: '다 둘러보셨으면',
     onEnd: function () { if (history.state && history.state.moyeo === 'trial') history.back(); }
   });
 

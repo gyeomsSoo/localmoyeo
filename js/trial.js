@@ -84,9 +84,11 @@
         var label = String(d.label || d.path || '').slice(0, 30);
         if (label && stats.routes.indexOf(label) < 0) { stats.routes.push(label); save(); }
         if (nowLabel && label) nowLabel.textContent = label;
+        if (label === '모임 탭') settleHint();
         if (o.onRoute) o.onRoute(label, stats.routes.slice());
       } else if (d.type === 'action') {
         // _행동: 일어난 순서대로. 같은 행동이 연달아 오면 한 번만 (SCHEMA §5, 11-19)
+        if (/^club_design/.test(String(d.name || ''))) settleHint();
         var name = String(d.label || d.name || '').slice(0, 30);
         if (name && stats.actions[stats.actions.length - 1] !== name && stats.actions.length < 80) { stats.actions.push(name); save(); }
       }
@@ -105,9 +107,10 @@
         c.appendChild(el('div', { class: 'loader', 'aria-hidden': 'true' }, [el('i'), el('i'), el('i'), el('i')]));
         c.appendChild(el('h3', { text: '앱을 불러오고 있어요' }));
         c.appendChild(el('p', { text: '처음 한 번은 10초쯤 걸려요. 설치는 필요 없어요.' }));
+        if (o.firstHint) c.appendChild(el('p', { class: 'tip', text: o.firstHint }));
         var slow = el('p', { class: 'slow', hidden: true }, ['연결이 느린가 봐요. 조금만 더 기다려 주세요.']);
-        if (o.onEnd && o.endLabel) {
-          var skip = el('button', { type: 'button', class: 'textlink', text: '기다리지 않고 설문부터 하기 →' });
+        if (o.onEnd && o.skipLabel) {
+          var skip = el('button', { type: 'button', class: 'textlink', text: o.skipLabel });
           skip.addEventListener('click', function () { end(); });
           slow.appendChild(el('br'));
           slow.appendChild(skip);
@@ -117,9 +120,9 @@
       } else if (kind === 'missing') {
         c.appendChild(el('div', { html: ICON_WAIT }));
         c.appendChild(el('h3', { text: '앱 체험판을 준비하고 있어요' }));
-        c.appendChild(el('p', { text: '조금 뒤에 다시 들러 주세요.' + (o.onEnd ? ' 설문은 지금 바로 할 수 있어요.' : '') }));
+        c.appendChild(el('p', { text: '조금 뒤에 다시 들러 주세요.' + (o.missingNote ? ' ' + o.missingNote : '') }));
         if (o.onEnd && o.endLabel) {
-          var b = el('button', { type: 'button', class: 'btn primary', html: '설문하기 <span class="arrow">→</span>' });
+          var b = el('button', { type: 'button', class: 'btn primary', html: o.endLabel + ' <span class="arrow">→</span>' });
           b.addEventListener('click', function () { end(); });
           c.appendChild(b);
         }
@@ -204,30 +207,94 @@
       mountInto(stage);
     }
 
-    /* ── 폰: 전체화면 겹침창 ── */
+    /* ── 폰: 전체화면 겹침창 ──────────────────────────────────
+     * 세로로 [얇은 위 막대 44px] / [앱: 남는 높이 전부] / [얇은 아래 막대 44px]. 막대는 앱 위에 겹치지 않는다
+     * — 앱의 앱바와 하단 탭이 늘 다 보인다.
+     * 몰입: 위 막대의 ⤢ 를 누르면 두 막대를 숨기고 앱이 화면 전부를 쓴다. 되는 브라우저(안드로이드 크롬 등)는
+     * requestFullscreen 도 건다. 안 돼도(iOS · 인앱) CSS 몰입은 된다. 오른쪽 가장자리 손잡이로 돌아온다.
+     */
+    var ICON_X = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>';
+    var ICON_EXPAND = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"/></svg>';
+    var ICON_HANDLE = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>';
+
+    var immersive = false;
+    var hintEl = null;
+    // 첫 안내(firstHint): 모임 탭에 가 보거나 디자인을 바꾸면(또는 30초 뒤) 평소 안내(endHint)로 바뀐다
+    function settleHint() { if (hintEl && o.firstHint && hintEl.textContent !== (o.endHint || '')) hintEl.textContent = o.endHint || ''; }
+    var fsOn = false;          // 브라우저 전체화면(requestFullscreen)을 걸었나
+    var handleTip = null;
+
+    function fsElement() { return document.fullscreenElement || document.webkitFullscreenElement || null; }
+
+    function enterImmersive() {
+      if (!overlay || immersive) return;
+      immersive = true;
+      overlay.classList.add('immersive');
+      var req = overlay.requestFullscreen || overlay.webkitRequestFullscreen;
+      fsOn = false;
+      if (req) {
+        try {
+          fsOn = true;
+          var p = req.call(overlay, { navigationUI: 'hide' });
+          if (p && typeof p.catch === 'function') p.catch(function () { fsOn = false; });   // 거절돼도 CSS 몰입은 그대로
+        } catch (e) { fsOn = false; }
+      }
+      // 처음 한 번만 손잡이 자리를 알려 준다
+      if (handleTip && !M.session.get('moyeo.trial.tip')) {
+        M.session.set('moyeo.trial.tip', 1);
+        handleTip.hidden = false;
+        setTimeout(function () { if (handleTip) handleTip.hidden = true; }, 2600);
+      }
+    }
+
+    function exitImmersive() {
+      if (!immersive) return;
+      immersive = false;
+      if (overlay) overlay.classList.remove('immersive');
+      if (handleTip) handleTip.hidden = true;
+      if (fsElement()) {
+        var x = document.exitFullscreen || document.webkitExitFullscreen;
+        try { var p = x.call(document); if (p && typeof p.catch === 'function') p.catch(function () { /* 무시 */ }); } catch (e) { /* 무시 */ }
+      }
+      fsOn = false;
+    }
+
+    // 브라우저 전체화면이 Esc · 뒤로가기로 풀리면 몰입도 함께 푼다(안드로이드 크롬은 뒤로가기를 전체화면 해제에 먼저 쓴다)
+    function onFsChange() { if (!fsElement() && immersive && fsOn) exitImmersive(); }
+    document.addEventListener('fullscreenchange', onFsChange);
+    document.addEventListener('webkitfullscreenchange', onFsChange);
+
+    self.isImmersive = function () { return immersive; };
+
     function openOverlay() {
       if (overlay) return;
       mode = 'overlay';
       opener = document.activeElement;
       nowLabel = el('b', { text: '' });
-      var close = el('button', { type: 'button', class: 'btn ghost small', 'aria-label': '체험 닫기' }, [
-        el('span', { html: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>' }),
-        '닫기'
-      ]);
+      var close = el('button', { type: 'button', class: 'tb-btn', 'aria-label': '체험 닫기', html: ICON_X + '<span>닫기</span>' });
       close.addEventListener('click', function () { self.close(); });
+      var full = el('button', { type: 'button', class: 'tb-btn', 'aria-label': '앱을 화면 가득 보기', title: '화면 가득', html: ICON_EXPAND });
+      full.addEventListener('click', enterImmersive);
       var stage = el('div', { class: 'trial-stage' });
+      var handle = el('button', { type: 'button', class: 'trial-handle', 'aria-label': '막대 다시 보기', html: ICON_HANDLE });
+      handle.addEventListener('click', exitImmersive);
+      handleTip = el('span', { class: 'trial-tip', hidden: true, text: '여기를 누르면 막대가 돌아와요' });
       var kids = [
         el('div', { class: 'trial-bar' }, [
           close,
-          el('div', { class: 'trial-now' }, [el('span', { class: 'live-dot', 'aria-hidden': 'true' }), el('span', { text: o.nowPrefix || '앱 체험 중' }), nowLabel])
+          el('div', { class: 'trial-now' }, [el('span', { class: 'live-dot', 'aria-hidden': 'true' }), el('span', { text: o.nowPrefix || '앱 체험 중' }), nowLabel]),
+          full
         ]),
         stage
       ];
       if (o.endLabel) {
-        var endBtn = el('button', { type: 'button', class: 'btn primary block', html: o.endLabel + ' <span class="arrow">→</span>' });
+        var endBtn = el('button', { type: 'button', class: 'trial-end', html: o.endLabel + ' <span class="arrow" aria-hidden="true">→</span>' });
         endBtn.addEventListener('click', function () { end(); });
-        kids.push(el('div', { class: 'trial-foot' }, [endBtn]));
+        hintEl = el('span', { class: 'hint' + (o.firstHint ? ' first' : ''), text: o.firstHint || o.endHint || '' });
+        if (o.firstHint) setTimeout(settleHint, 30000);
+        kids.push(el('div', { class: 'trial-foot' }, [hintEl, endBtn]));
       }
+      kids.push(handle, handleTip);
       overlay = el('div', { class: 'trial-overlay', role: 'dialog', 'aria-modal': 'true', 'aria-label': o.entry === 'owner' ? '사장님 화면 체험' : '앱 체험' }, kids);
       document.body.appendChild(overlay);
       document.documentElement.classList.add('lock');
@@ -238,6 +305,9 @@
 
     function removeOverlay() {
       if (!overlay) return false;
+      exitImmersive();
+      handleTip = null;
+      hintEl = null;
       teardownFrame();
       overlay.parentNode.removeChild(overlay);
       overlay = null;
@@ -261,8 +331,20 @@
       if (o.onEnd) o.onEnd({ fromOverlay: fromOverlay });
     }
 
-    window.addEventListener('popstate', function () { if (overlay) self.close(true); });
-    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && overlay) self.close(); });
+    /* 뒤로가기: 몰입 중이면 먼저 몰입만 푼다(겹침창은 그대로 — 뒤로가기 한 칸을 다시 넣어 둔다). 아니면 겹침창을 닫는다. */
+    window.addEventListener('popstate', function () {
+      if (!overlay) return;
+      if (immersive) {
+        exitImmersive();
+        try { history.pushState({ moyeo: 'trial' }, ''); } catch (e) { /* 무시 */ }
+        return;
+      }
+      self.close(true);
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Escape' || !overlay) return;
+      if (immersive) exitImmersive(); else self.close();
+    });
 
     self.open = function () {
       if (o.frameHost && !o.forceOverlay && M.isDesktopWide()) openFrame();

@@ -381,43 +381,136 @@ html.lock, html.lock body { overflow: hidden; }
   background: var(--paper);
   animation: rise 380ms var(--ease) both;
 }
+/* 위·아래 막대는 각각 44px 안팎 + 안전 영역. 막대는 앱(iframe) 위에 겹치지 않는다 — 세로 flex 로 나눈다 */
 .trial-bar {
   flex: none;
   display: flex;
   align-items: center;
-  gap: 10px;
-  height: calc(52px + var(--safe-t));
-  padding: var(--safe-t) 8px 0 4px;
+  gap: 2px;
+  height: calc(44px + var(--safe-t));
+  padding: var(--safe-t) 2px 0 2px;
   border-bottom: 1px solid var(--line);
   background: var(--paper);
 }
-.trial-bar .btn.small { min-height: 44px; padding: 0 12px; }
+.tb-btn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-width: 44px;
+  height: 44px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 700;
+  transition: background-color 140ms ease, transform 320ms var(--spring);
+  touch-action: manipulation;
+}
+.tb-btn:hover { background: var(--bg); }
+.tb-btn:active { transform: scale(.94); }
 .trial-now {
   flex: 1;
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 14px;
+  gap: 6px;
+  font-size: 13px;
   color: var(--sub);
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 .trial-now b { color: var(--ink); font-weight: 700; overflow: hidden; text-overflow: ellipsis; }
-.live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--mint); flex: none; box-shadow: 0 0 0 0 rgba(11, 122, 85, .5); animation: ping 1.8s ease-out infinite; }
+.live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--mint); flex: none; box-shadow: 0 0 0 0 rgba(11, 122, 85, .5); animation: ping 1.8s ease-out infinite; }
 
 .trial-stage { position: relative; flex: 1; min-height: 0; background: var(--bg); }
 .trial-stage iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: var(--paper); }
 
 .trial-foot {
   flex: none;
-  padding: 10px 16px calc(10px + var(--safe-b));
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  height: calc(44px + var(--safe-b));
+  padding: 0 8px var(--safe-b) 14px;
   border-top: 1px solid var(--line);
   background: var(--paper);
 }
-.trial-foot .btn { min-height: 52px; }
+.trial-foot .hint { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; color: var(--hint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 작지만 눈에 띄는 알약 버튼. 보이는 높이 34px, 누르는 자리는 ::after 로 44px */
+.trial-end {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 34px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--brand);
+  color: #fff;
+  font-size: 14.5px;
+  font-weight: 700;
+  transition: background-color 140ms ease, transform 320ms var(--spring);
+  touch-action: manipulation;
+}
+.trial-end::after { content: ""; position: absolute; inset: -5px -4px; }
+.trial-end:hover { background: var(--brand-dark); }
+.trial-end:active { transform: scale(.95); }
+
+/* 몰입: 막대를 숨기고 앱이 화면 전부. 노치·홈 막대 자리는 비워 둔다(앱은 iframe 이라 그 자리를 모른다) */
+.trial-overlay.immersive .trial-bar,
+.trial-overlay.immersive .trial-foot { display: none; }
+.trial-overlay.immersive { background: var(--paper); }
+.trial-overlay.immersive .trial-stage { margin: var(--safe-t) 0 var(--safe-b); }
+
+/* 몰입 중 막대를 되부르는 손잡이 — 오른쪽 가장자리 세로 가운데. 앱바·하단 탭과 겹치지 않는 자리 */
+.trial-handle {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: 50%;
+  z-index: 5;
+  width: 22px;
+  height: 60px;
+  margin-top: -30px;
+  padding: 0;
+  border: 0;
+  border-radius: 12px 0 0 12px;
+  background: rgba(25, 31, 40, .38);
+  color: #fff;
+  place-items: center;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  touch-action: manipulation;
+}
+.trial-handle::after { content: ""; position: absolute; top: -6px; bottom: -6px; left: -12px; right: 0; }
+.trial-overlay.immersive .trial-handle { display: grid; animation: handleIn 520ms var(--spring) both; }
+.trial-handle:focus-visible { outline-offset: -3px; }
+.trial-tip {
+  position: absolute;
+  right: 30px;
+  top: 50%;
+  z-index: 5;
+  transform: translateY(-50%);
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(25, 31, 40, .86);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: rise 260ms var(--ease) both;
+}
+.trial-overlay:not(.immersive) .trial-tip { display: none; }
+@keyframes handleIn { from { transform: translateX(100%); } to { transform: none; } }
 
 /* 불러오는 중 · 준비 중 */
 .trial-cover {
@@ -484,3 +577,61 @@ html.lock, html.lock body { overflow: hidden; }
 }
 .cmode button:active { transform: scale(.96); }
 .cmode button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+
+/* ── 그림 고르기 (image-choice) — 폰에서도 2열, 그림은 세로 화면 비율 ── */
+.ic-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+@media (min-width: 600px) { .ic-grid { grid-template-columns: repeat(var(--n, 2), minmax(0, 1fr)); gap: 14px; } }
+.ic-card {
+  display: flex; flex-direction: column;
+  border-radius: var(--r-l);
+  background: var(--paper);
+  box-shadow: inset 0 0 0 1.2px var(--line-strong);
+  overflow: hidden;
+  transition: box-shadow 160ms ease, transform 320ms var(--spring);
+}
+.ic-card.on { box-shadow: inset 0 0 0 2.4px var(--brand); }
+.ic-shot {
+  position: relative; display: block; width: 100%; padding: 0; border: 0;
+  aspect-ratio: 390 / 844;
+  max-height: 42vh;          /* 작은 폰에서도 [이걸로] 줄이 첫 화면에 들어오게 — 전체는 크게 보기에서 */
+  background: var(--bg);
+  overflow: hidden; cursor: zoom-in;
+}
+.ic-shot img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
+.ic-shot::after {     /* 크게 보기 표시 */
+  content: ""; position: absolute; right: 8px; top: 8px; width: 28px; height: 28px; border-radius: 9px;
+  background: rgba(25, 31, 40, .55) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='6.5'/%3E%3Cpath d='M20 20l-4.2-4.2M11 8.5v5M8.5 11h5'/%3E%3C/svg%3E") center / 16px no-repeat;
+}
+.ic-shot.noimg { cursor: pointer; }
+.ic-shot.noimg::after { display: none; }
+.ic-ph { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 12px; text-align: center; color: var(--sub);
+  background-image: repeating-linear-gradient(135deg, transparent 0 10px, rgba(25, 31, 40, .035) 10px 20px); }
+.ic-ph b { font-size: 17px; color: var(--ink); }
+.ic-ph small { font-size: 12.5px; }
+.ic-pick {
+  position: relative; display: flex; align-items: center; gap: 8px;
+  min-height: 52px; padding: 8px 10px 8px 12px;
+  border-top: 1px solid var(--line);
+  cursor: pointer; font-weight: 700; user-select: none; -webkit-user-select: none;
+  touch-action: manipulation;
+}
+.ic-pick input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+.ic-pick .mark { flex: none; width: 22px; height: 22px; border-radius: 50%; box-shadow: inset 0 0 0 2px var(--line-strong); display: grid; place-items: center; transition: box-shadow 180ms var(--ease), background-color 180ms ease; }
+.ic-pick .mark svg { width: 14px; height: 14px; opacity: 0; transform: scale(.4); transition: transform 280ms var(--spring), opacity 120ms ease; }
+.ic-label { flex: 1; min-width: 0; font-size: 15.5px; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ic-btn-t { flex: none; font-size: 13px; font-weight: 700; color: var(--brand); padding: 4px 8px; border-radius: 8px; background: var(--brand-soft); }
+.ic-card.on .ic-pick { background: var(--brand-soft); }
+.ic-card.on .mark { box-shadow: none; background: var(--brand); }
+.ic-card.on .mark svg { opacity: 1; transform: scale(1); }
+.ic-card.on .ic-btn-t { background: var(--brand); color: #fff; }
+.ic-pick:focus-within { outline: 2.5px solid var(--brand); outline-offset: -2.5px; }
+.ic-opts { margin-top: 12px; }
+@media (max-width: 380px) { .ic-btn-t { display: none; } }   /* 아주 좁으면 표시 점·테두리로만 */
+
+.lb-acts { display: flex; gap: 8px; }
+.lightbox .btn.primary { background: var(--brand); color: #fff; }
+
+/* 아래 막대 안내 — 첫 안내는 두 줄까지 (막대 높이는 그대로) */
+.trial-foot .hint.first { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.3; font-size: 12.5px; color: var(--brand); }
+.trial-cover .tip { margin-top: 4px; padding: 8px 12px; border-radius: 10px; background: var(--brand-soft); color: var(--brand); font-size: 14px; font-weight: 700; }
+@media (max-height: 700px) { .ic-shot { max-height: 33vh; } }   /* 360×640 같은 작은 폰 */

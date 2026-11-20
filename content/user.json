@@ -52,7 +52,7 @@
             },
             {
               "id": "moim",
-              "label": "모임 탭(찾아온 모임)",
+              "label": "추천 탭(찾아온 모임)",
               "image": "img/screens/moim.png"
             },
             {
@@ -84,7 +84,46 @@
         },
         {
           "id": "A3",
-          "key": "A3 가장 헷갈리거나 귀찮았던 점",
+          "key": "A3 모임 탭 디자인 선호",
+          "type": "image-choice",
+          "text": "모임 탭 화면, 어느 디자인이 더 마음에 들어요?",
+          "help": "앱의 모임 탭 오른쪽 위 '디자인 B 보기'를 누르면 직접 비교해 볼 수 있어요.",
+          "required": false,
+          "choices": [
+            {
+              "id": "a",
+              "label": "디자인 A",
+              "image": "img/screens/club_a.png"
+            },
+            {
+              "id": "b",
+              "label": "디자인 B",
+              "image": "img/screens/club_b.png"
+            }
+          ],
+          "options": [
+            "비슷해요"
+          ],
+          "shuffle": true
+        },
+        {
+          "id": "A4",
+          "key": "A4 디자인 고른 이유",
+          "type": "text",
+          "text": "고른 이유를 한 줄로 적어 주세요.",
+          "required": false,
+          "placeholder": "한 줄이면 충분해요",
+          "showIf": {
+            "q": "A3",
+            "in": [
+              "디자인 A",
+              "디자인 B"
+            ]
+          }
+        },
+        {
+          "id": "A5",
+          "key": "A5 가장 헷갈리거나 귀찮았던 점",
           "type": "text",
           "text": "가장 헷갈리거나 귀찮았던 점이 있다면 한 줄로 적어 주세요.",
           "required": false,

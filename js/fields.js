@@ -13,7 +13,7 @@
 
   var OTHER = '__other__';
   var OTHER_LABEL = '기타 (직접 입력)';
-  var TYPES = ['single', 'multi', 'scale', 'rank', 'rating-grid', 'select', 'number', 'text', 'longtext', 'info'];
+  var TYPES = ['single', 'multi', 'scale', 'rank', 'rating-grid', 'select', 'number', 'text', 'longtext', 'info', 'image-choice'];
   var MAXLEN = 2000;
 
   var CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
@@ -31,6 +31,11 @@
         if (n.type === 'info') n.required = false;
         else if (typeof n.required !== 'boolean') n.required = (kind === 'user');
         n.options = Array.isArray(n.options) ? n.options.map(String) : [];
+        // image-choice 의 그림 보기: { id, label, image } (SCHEMA §3, 11-19). 그림 없는 보기는 options 로 아래에.
+        if (n.type === 'image-choice') {
+          n.choices = (Array.isArray(q.choices) ? q.choices : []).filter(function (c) { return c && c.label; })
+            .map(function (c) { return { id: String(c.id || c.label), label: String(c.label), image: c.image ? String(c.image) : '' }; });
+        }
         // select 의 보기: { v: 저장값, label: 보이는 글 }.
         // range 는 숫자만 저장하고 suffix("세")는 화면에만 붙인다 (메인 결정 26-11-19: 나이 24 → 24).
         if (n.type === 'select') {
@@ -175,6 +180,30 @@
     return '';
   }
 
+  /**
+   * image-choice 보기 순서. shuffle 이면 응답자마다 무작위로 한 번 정하고 state.orders 에 둔다
+   * (진행 저장에 함께 들어가 새로고침해도 같은 순서). 보기 묶음이 바뀌었으면 새로 섞는다.
+   */
+  function choiceOrder(q, state) {
+    var list = q.choices || [];
+    if (!q.shuffle) return list;
+    state.orders = state.orders || {};
+    var ids = state.orders[q.id];
+    var byId = {};
+    list.forEach(function (c) { byId[c.id] = c; });
+    var same = Array.isArray(ids) && ids.length === list.length && ids.every(function (id) { return byId[id]; });
+    if (!same) {
+      ids = list.map(function (c) { return c.id; });
+      for (var i = ids.length - 1; i > 0; i--) {
+        var r = 0;
+        try { r = crypto.getRandomValues(new Uint32Array(1))[0] % (i + 1); } catch (e) { r = Math.floor(Math.random() * (i + 1)); }
+        var t = ids[i]; ids[i] = ids[r]; ids[r] = t;
+      }
+      state.orders[q.id] = ids;
+    }
+    return ids.map(function (id) { return byId[id]; });
+  }
+
   /** private 문항(닉네임·연락처)의 답만: { key: 값 }. 숨겨졌거나 빈 것은 뺀다. → kind "contact" 로 따로 보낸다 */
   function flattenPrivate(form, state) {
     var out = {};
@@ -201,6 +230,10 @@
           if (v && !isEmpty(v[it.id])) out[q.key + ' · ' + it.label] = v[it.id];
         });
         return;
+      }
+      // image-choice + shuffle: 보여 준 순서를 함께 ("디자인 B, 디자인 A"). 건너뛴 경우에도 본 순서는 남긴다.
+      if (q.type === 'image-choice' && q.shuffle && state.orders && Array.isArray(state.orders[q.id])) {
+        out[q.key + ' · 순서'] = choiceOrder(q, state).map(function (c) { return c.label; }).join(', ');
       }
       if (isEmpty(v)) return;
       if (v === OTHER) v = '기타: ' + other;
@@ -230,6 +263,7 @@
 
     switch (q.type) {
       case 'single': return single();
+      case 'image-choice': return imageChoice();
       case 'multi': return multi();
       case 'scale': return scale();
       case 'rank': return rank();
@@ -289,6 +323,74 @@
       wrap.appendChild(list);
       if (box) wrap.appendChild(box);
       wrap.pick = function (i) { if (rows[i]) rows[i].input.click(); };
+      return wrap;
+    }
+
+    /* 그림 보기 2~3개를 나란히 (폰에서도 2열). 그림을 누르면 크게, 카드 아래 [이걸로] 로 고른다. 그림 없는 보기는 아래 일반 버튼. */
+    function imageChoice() {
+      var cur = state.answers[q.id];
+      var ordered = choiceOrder(q, state);
+      var grid = el('div', { class: 'ic-grid', role: 'radiogroup', 'aria-label': q.text, style: '--n:' + Math.max(2, Math.min(3, ordered.length)) });
+      var picks = [];
+      function choose(label) {
+        picks.forEach(function (p) {
+          var on = p.label === label;
+          p.input.checked = on;
+          p.card.classList.toggle('on', on);
+          p.btnText.textContent = on ? '선택됨' : '이걸로';
+        });
+        optRows.forEach(function (r) { r.input.checked = r.value === label; r.classList.toggle('on', r.value === label); });
+        set(label, { advance: true });
+      }
+      ordered.forEach(function (c, i) {
+        var card = el('div', { class: 'ic-card' + (cur === c.label ? ' on' : '') });
+        var shot = el('button', { type: 'button', class: 'ic-shot', 'aria-label': c.label + ' 크게 보기' });
+        var ph = el('span', { class: 'ic-ph' }, [el('b', { text: c.label }), el('small', { text: '그림 준비 중' })]);
+        if (c.image) {
+          var img = el('img', { src: M.root + c.image, alt: c.label + ' 화면', loading: 'lazy', decoding: 'async' });
+          img.addEventListener('error', function () { img.remove(); shot.classList.add('noimg'); shot.appendChild(ph); });
+          shot.appendChild(img);
+          shot.addEventListener('click', function () {
+            if (shot.classList.contains('noimg')) { choose(c.label); return; }
+            lightbox(M.root + c.image, c.label, function () { choose(c.label); });
+          });
+        } else {
+          shot.classList.add('noimg');
+          shot.appendChild(ph);
+          shot.addEventListener('click', function () { choose(c.label); });
+        }
+        var input = el('input', { type: 'radio', name: name, value: c.label, 'aria-label': c.label });
+        input.checked = cur === c.label;
+        var btnText = el('span', { class: 'ic-btn-t', text: cur === c.label ? '선택됨' : '이걸로' });
+        var pick = el('label', { class: 'ic-pick' }, [
+          input,
+          el('span', { class: 'mark', 'aria-hidden': 'true', html: CHECK }),
+          el('span', { class: 'ic-label', text: c.label }),
+          btnText
+        ]);
+        input.addEventListener('change', function () { if (input.checked) choose(c.label); });
+        card.appendChild(shot);
+        card.appendChild(pick);
+        grid.appendChild(card);
+        picks.push({ label: c.label, input: input, card: card, btnText: btnText, index: i });
+      });
+      wrap.appendChild(grid);
+      var optRows = [];
+      if (q.options.length) {
+        var list = el('div', { class: 'opts ic-opts', role: 'radiogroup', 'aria-label': q.text + ' — 그 밖의 답' });
+        q.options.forEach(function (o, i) {
+          var row = optRow('radio', o, o, ordered.length + i, cur === o);
+          row.input.name = name;
+          row.input.addEventListener('change', function () { if (row.input.checked) choose(o); });
+          list.appendChild(row);
+          optRows.push(row);
+        });
+        wrap.appendChild(list);
+      }
+      wrap.pick = function (i) {
+        if (i < picks.length) choose(picks[i].label);
+        else if (optRows[i - picks.length]) choose(optRows[i - picks.length].value);
+      };
       return wrap;
     }
 
@@ -595,6 +697,9 @@
           keep = Object.keys(g).length ? g : null; break;
         }
         case 'select': keep = (q.choices || []).some(function (c) { return String(c.v) === String(v); }) ? v : null; break;
+        case 'image-choice':
+          keep = typeof v === 'string' && ((q.choices || []).some(function (c) { return c.label === v; }) || opts.indexOf(v) >= 0) ? v : null;
+          break;
         case 'scale': {
           var s = q.scale || {};
           keep = typeof v === 'number' && v >= s.min && v <= s.max ? v : null; break;
@@ -609,19 +714,35 @@
       var has = v === OTHER || (Array.isArray(v) && v.indexOf(OTHER) >= 0);
       if (!has) delete o[id];
     });
+    // 보기 순서: 지금 문항에 없거나 보기 묶음이 달라졌으면 버린다(다음에 그릴 때 새로 섞는다)
+    var ord = state.orders || {};
+    Object.keys(ord).forEach(function (id) {
+      var q = form.byId[id];
+      var ids = ord[id];
+      var ok = q && q.type === 'image-choice' && q.shuffle && Array.isArray(ids) && ids.length === (q.choices || []).length &&
+        ids.every(function (x) { return (q.choices || []).some(function (c) { return c.id === x; }); });
+      if (!ok) delete ord[id];
+    });
     state.answers = a;
     state.others = o;
+    state.orders = ord;
     return state;
   }
 
   /** 화면 캡처 크게 보기 — 아무 데나 누르거나 Esc 로 닫는다 */
-  function lightbox(src, label) {
+  function lightbox(src, label, onPick) {
     var opener = document.activeElement;
     var close = el('button', { type: 'button', class: 'btn small', text: '닫기' });
+    var acts = el('div', { class: 'lb-acts' }, [close]);
+    if (onPick) {
+      var pickBtn = el('button', { type: 'button', class: 'btn small primary', text: '이걸로 고르기' });
+      pickBtn.addEventListener('click', function (e) { e.stopPropagation(); done(); onPick(); });
+      acts.insertBefore(pickBtn, close);
+    }
     var box = el('div', { class: 'lightbox', role: 'dialog', 'aria-modal': 'true', 'aria-label': label + ' 화면' }, [
       el('img', { src: src, alt: label + ' 화면' }),
       el('p', { text: label }),
-      close
+      acts
     ]);
     function done() {
       document.removeEventListener('keydown', onKey);
@@ -647,6 +768,7 @@
     validate: validate,
     flatten: flatten,
     flattenPrivate: flattenPrivate,
+    choiceOrder: choiceOrder,
     contactValue: contactValue,
     render: render,
     sanitize: sanitize,

@@ -17,7 +17,7 @@
   var content = null;        // user.json
   var form = null;           // F.normalize 결과
   var loadError = null;
-  var state = { answers: {}, others: {} };
+  var state = { answers: {}, others: {}, orders: {} };
   var cur = null;            // 지금 문항 id · 'start' · 'outro'
   var startedAt = null;      // 첫 문항을 본 시각
   var view = 'home';
@@ -31,7 +31,11 @@
     frameHost: M.$('#phone'),
     statsKey: TRIAL,
     nowPrefix: '앱 체험 중 ·',
-    endLabel: '체험 끝, 설문하기',
+    endLabel: '설문하기',
+    endHint: '다 둘러봤으면',
+    firstHint: '모임 탭에서 디자인 A·B를 바꿔 볼 수 있어요',
+    skipLabel: '기다리지 않고 설문부터 하기 →',
+    missingNote: '설문은 지금 바로 할 수 있어요.',
     onOpen: function () { M.visit('체험 시작'); },
     onMount: function () { paintHome(); },
     onRoute: function (label, routes) {
@@ -135,7 +139,7 @@
       var keepA = {}, keepO = {};
       Object.keys(state.answers).forEach(function (id) { var q = form && form.byId[id]; if (!(q && q.private)) keepA[id] = state.answers[id]; });
       Object.keys(state.others).forEach(function (id) { var q = form && form.byId[id]; if (!(q && q.private)) keepO[id] = state.others[id]; });
-      M.local.set(PROGRESS, { id: content.id, answers: keepA, others: keepO, cur: cur, startedAt: startedAt, answered: answered, at: Date.now() });
+      M.local.set(PROGRESS, { id: content.id, answers: keepA, others: keepO, orders: state.orders || {}, cur: cur, startedAt: startedAt, answered: answered, at: Date.now() });
     }, 250);
   }
   function restoredCur() {
@@ -152,6 +156,7 @@
     if (p && p.id === c.id) {
       state.answers = p.answers || {};
       state.others = p.others || {};
+      state.orders = p.orders || {};   // image-choice 무작위 순서 — 한 번 정하면 그대로
       F.sanitize(form, state);   // 지금 보기에 없는 값은 버린다
       startedAt = p.startedAt || null;
     } else if (p) {

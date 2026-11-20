@@ -33,7 +33,8 @@
     entry: 'owner',
     forceOverlay: true,
     nowPrefix: '사장님 화면 ·',
-    endLabel: '시연 끝, 시트로 돌아가기',
+    endLabel: '시트로',
+    endHint: '시연 끝나면',
     onEnd: function () { if (history.state && history.state.moyeo === 'trial') history.back(); }
   });
   M.$('#demoBtn').addEventListener('click', function () { demo.open(); });
