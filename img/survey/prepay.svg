@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 490" role="img" aria-label="미리 결제 흐름: 앱에서 가게와 같은 가격으로 미리 결제한다. 취소 마감 전에 취소하면 전액 환불. 마감 뒤에 취소하거나 안 나오면 환불 없음, 그 돈은 가게 몫. 모임 날 가게에서 만난다.">
+  <style>
+    text { font-family: Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", "Noto Sans CJK KR", sans-serif; }
+    .t { font-size: 30px; font-weight: 700; fill: #191F28; }
+    .s { font-size: 24px; font-weight: 500; fill: #4E5968; }
+    .g { font-size: 25px; font-weight: 700; fill: #0B7A55; }
+    .a { font-size: 25px; font-weight: 700; fill: #B45309; }
+  </style>
+  <rect width="600" height="490" rx="28" fill="#FFFFFF"/>
+
+  <!-- 시간 줄: 결제 → 마감(초록: 취소하면 환불) → 모임 날(주황: 환불 없음) -->
+  <rect x="54" y="64" width="12" height="176" rx="6" fill="#0B7A55"/>
+  <rect x="54" y="240" width="12" height="180" rx="6" fill="#B45309"/>
+
+  <!-- ① 미리 결제 -->
+  <circle cx="60" cy="64" r="32" fill="#2563EB" stroke="#FFFFFF" stroke-width="6"/>
+  <g fill="none" stroke="#FFFFFF" stroke-width="3.5" stroke-linejoin="round">
+    <rect x="45" y="53" width="30" height="22" rx="4"/>
+  </g>
+  <rect x="45" y="58" width="30" height="5" fill="#FFFFFF"/>
+  <text class="t" x="116" y="60">앱에서 미리 결제</text>
+  <text class="s" x="116" y="94">가격은 가게와 똑같아요</text>
+
+  <rect x="108" y="128" width="352" height="60" rx="30" fill="#E6F6EF"/>
+  <text class="g" x="130" y="167">이때 취소하면 → 전액 환불</text>
+
+  <!-- ② 취소 마감 -->
+  <circle cx="60" cy="240" r="32" fill="#191F28" stroke="#FFFFFF" stroke-width="6"/>
+  <g fill="none" stroke="#FFFFFF" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="60" cy="240" r="15"/>
+    <path d="M60 231v9l6.5 4.5"/>
+  </g>
+  <text class="t" x="116" y="236">취소 마감</text>
+  <text class="s" x="116" y="270">모임 전, 정해진 시간</text>
+
+  <rect x="108" y="298" width="440" height="88" rx="24" fill="#FEF3E2"/>
+  <text class="a" x="130" y="333">이때 취소하거나 안 나오면</text>
+  <text class="a" x="130" y="369">→ 환불 없어요 (그 돈은 가게 몫)</text>
+
+  <!-- ③ 모임 날 -->
+  <circle cx="60" cy="420" r="32" fill="#2563EB" stroke="#FFFFFF" stroke-width="6"/>
+  <path d="M44 414l3.5-9h25l3.5 9z" fill="#FFFFFF"/>
+  <rect x="47.5" y="414" width="25" height="16" rx="2" fill="none" stroke="#FFFFFF" stroke-width="3.5"/>
+  <rect x="56" y="420" width="8" height="10" fill="#FFFFFF"/>
+  <text class="t" x="116" y="424">모임 날</text>
+  <text class="s" x="116" y="458">가게에서 만나요</text>
+</svg>

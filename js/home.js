@@ -343,6 +343,16 @@
     try { card.focus({ preventScroll: true }); } catch (e) { card.focus(); }
   }
 
+  /** 문항 그림 (SCHEMA §3 figure, 11-20): 글을 읽기 전에 한눈에 알아보게 돕는 그림 한 장. 못 불러오면 그림 자리를 지운다(글만으로도 답할 수 있다) */
+  function drawFigure(q) {
+    var f = q.figure;
+    if (!f || !f.src) return null;
+    var img = el('img', { src: M.root + f.src, alt: f.alt || '', loading: 'eager', decoding: 'async' });
+    var fig = el('figure', { class: 'q-figure' }, [img]);
+    img.addEventListener('error', function () { if (fig.parentNode) fig.parentNode.removeChild(fig); });
+    return fig;
+  }
+
   function drawQuestion(q) {
     var card = el('section', { class: 'card', tabindex: '-1', 'aria-labelledby': 'qt-' + q.id });
     card.appendChild(el('p', { class: 'sv-sec', text: (q.section && q.section.title) || '' }));
@@ -350,6 +360,7 @@
     if (q.type === 'info') {
       card.appendChild(el('div', { class: 'info-card' }, [
         el('span', { class: 'info-tag', html: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.6v.1"/></svg>안내' }),
+        drawFigure(q),
         el('p', { class: 'info-text', id: 'qt-' + q.id, text: q.text }),
         q.help ? el('p', { class: 'q-help', text: q.help }) : null
       ]));
@@ -360,6 +371,8 @@
     if (!q.required) h.appendChild(el('span', { class: 'opt-chip', text: '선택' }));
     card.appendChild(h);
     if (q.help) card.appendChild(el('p', { class: 'q-help', text: q.help }));
+    var qfig = drawFigure(q);
+    if (qfig) card.appendChild(qfig);
     if (q.private) {
       card.appendChild(el('p', { class: 'private-note' }, [
         el('span', { html: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg>' }),

@@ -390,3 +390,8 @@
 /* 개인정보 문항 표시 — 설문 답과 따로 저장된다는 것을 그 자리에서 */
 .private-note { display: flex; align-items: center; gap: 6px; margin-top: 10px; font-size: 14px; font-weight: 600; color: var(--mint); }
 .private-note svg { flex: none; }
+
+/* 문항 그림 (SCHEMA §3 figure, 11-20) — 글보다 먼저 한눈에. 폰 폭을 꽉 채우되 데스크톱에선 너무 커지지 않게 */
+.q-figure { margin: 2px 0 16px; }
+.q-figure img { display: block; width: 100%; max-width: 440px; height: auto; border-radius: 16px; }
+.card > .q-figure { margin-top: 14px; }
