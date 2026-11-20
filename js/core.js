@@ -87,6 +87,24 @@
     // boss: 아무것도 지우지 않는다 (초안 · 대기열 보호)
   }
 
+  /* ── 한 번만 비우기 (RESET_EPOCH) ──
+   * 이 값이 브라우저에 저장된 값과 다르면, 그 브라우저에서 한 번만 이용자 설문 흔적을 지운다.
+   * 지우는 것: 설문 진행·완료 표시·체험 기록·익명 id·⤢ 안내를 본 표시, 그리고 아직 못 보낸 이용자·연락처·방문 응답.
+   * 남기는 것: 인터뷰 초안과 못 보낸 인터뷰(boss).
+   * 11-20: 그때까지의 응답이 전부 겸수님 시험이라, 시트를 비우면서 시험 기기의 흔적도 한 번 정리했다.
+   * ⚠ 실제 응답을 받기 시작한 뒤에는 바꾸지 말 것 — 못 보낸 진짜 응답까지 사라진다. */
+  var RESET_EPOCH = '2026-11-20';
+  if (M.local.ok && M.local.get('moyeo.epoch') !== RESET_EPOCH) {
+    ['moyeo.progress.user', 'moyeo.done.user', 'moyeo.trial.user', 'moyeo.trylog.user', 'moyeo.sid', 'moyeo.trial.fsTip']
+      .forEach(function (k) { M.local.del(k); });
+    M.session.keys('moyeo.visit.').concat(['moyeo.testsid', 'moyeo.trial.tip']).forEach(function (k) { M.session.del(k); });
+    var oldBox = M.local.get('moyeo.outbox');
+    if (Array.isArray(oldBox)) {
+      M.local.set('moyeo.outbox', oldBox.filter(function (it) { return it && it.payload && it.payload.kind === 'boss'; }));
+    }
+    M.local.set('moyeo.epoch', RESET_EPOCH);
+  }
+
   M.rand = function (n) {
     var abc = 'abcdefghijkmnpqrstuvwxyz23456789';
     var out = '';
