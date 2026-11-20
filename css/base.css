@@ -605,23 +605,30 @@ html.lock, html.lock body { overflow: hidden; }
   line-height: 1.6;
   border-top: 1px solid var(--line);
 }
-/* 만든 사람 — 바닥글 맨 위의 작은 카드 */
+/* 만든 사람 명함 — 첫 페이지 맨 위. 폰에선 두 줄 두 칸으로 낮게(버튼이 첫 화면 안에 들어오게):
+   [동네모여 | 개인 연락: @ruatn_]
+   [이겸수   | 010 7399 0966    ]   — 읽는 순서는 위→아래, 왼쪽 칸 다음 오른쪽 칸 */
 .maker {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  max-width: 320px;
-  margin: 0 0 16px;
-  padding: 14px 16px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  grid-auto-flow: column;
+  column-gap: 18px;
+  row-gap: 2px;
+  align-items: baseline;
+  padding: 12px 16px;
+  border: 1px solid var(--line);
   border-radius: var(--r-m);
-  background: var(--bg);
+  background: var(--paper);
+  box-shadow: 0 2px 10px rgba(25, 31, 40, .05);
   font-style: normal;
   color: var(--sub);
   font-size: 14px;
   line-height: 1.5;
 }
 .maker-brand { color: var(--brand); font-size: 13px; font-weight: 700; }
-.maker-name { color: var(--ink); font-size: 16px; font-weight: 700; margin-bottom: 2px; }
+.maker-name { color: var(--ink); font-size: 18px; font-weight: 800; }
+.maker-line { justify-self: start; }
 .maker a { color: var(--ink); font-weight: 600; text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 3px; }
 .maker a:hover { text-decoration-color: currentColor; }
 

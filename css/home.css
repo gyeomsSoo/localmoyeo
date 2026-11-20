@@ -14,13 +14,14 @@
   grid-template-columns: minmax(0, 1fr);
   /* 폰: 글 → 버튼 → 찾아온 모임 → 순서 안내. 인앱 브라우저는 보이는 높이가 650px 안팎이라
      버튼이 첫 화면 안에 들어와야 한다 */
-  grid-template-areas: "copy" "cta" "stage" "plan";
+  grid-template-areas: "maker" "copy" "cta" "stage" "plan";   /* 11-20: 맨 위에 만든 사람 명함 */
   gap: 22px;
   padding: 8px var(--gutter) 40px;
   max-width: 560px;
   width: 100%;
   margin: 0 auto;
 }
+.hero .maker { grid-area: maker; justify-self: start; }
 .hero-copy { grid-area: copy; }
 .hero-stage { grid-area: stage; }
 .hero-cta { display: contents; }
@@ -178,15 +179,15 @@
   .hero {
     max-width: 1200px;
     grid-template-columns: minmax(0, 1fr) 560px;
-    grid-template-areas: "copy stage" "cta stage";
-    grid-template-rows: auto 1fr;
+    grid-template-areas: "maker stage" "copy stage" "cta stage";
+    grid-template-rows: auto auto 1fr;
     column-gap: 72px;
     row-gap: 32px;
     padding-top: 24px;
     padding-bottom: 56px;
   }
   .hero-cta { display: block; grid-area: cta; }
-  .hero-copy { align-self: end; padding-top: 48px; }
+  .hero-copy { align-self: end; padding-top: 24px; }
   .hero h1 { font-size: 60px; line-height: 1.16; }
   .lead { font-size: 19px; margin-top: 22px; }
   .eyebrow { font-size: 15px; margin-bottom: 20px; }
