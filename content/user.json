@@ -1,5 +1,5 @@
 {
-  "id": "user-v2",
+  "id": "user-v3",
   "kind": "user",
   "title": "동네모여 설문",
   "intro": "앱을 둘러본 느낌 그대로 답해 주세요. 안 둘러봤어도 괜찮아요. 5분 정도 걸려요.",
@@ -79,7 +79,7 @@
             },
             {
               "id": "room",
-              "label": "모임 상세·참여",
+              "label": "모임 상세·예약",
               "image": "img/screens/room.png"
             },
             {
@@ -88,57 +88,21 @@
               "image": "img/screens/chat.png"
             },
             {
+              "id": "club",
+              "label": "모임 탭(내 동아리)",
+              "image": "img/screens/club.png"
+            },
+            {
               "id": "checkin",
-              "label": "체크인(출석 도장)",
+              "label": "출석 도장",
               "image": "img/screens/checkin.png"
             },
             {
               "id": "profile",
-              "label": "프로필·여권",
+              "label": "프로필·회원증",
               "image": "img/screens/profile.png"
             }
           ]
-        },
-        {
-          "id": "A3",
-          "key": "A3 모임 탭 디자인 선호",
-          "type": "image-choice",
-          "text": "모임 탭 화면, 어느 디자인이 더 마음에 들어요?",
-          "help": "그림 아래 '직접 써보기'를 누르면 그 디자인을 앱에서 바로 써 볼 수 있어요.",
-          "required": false,
-          "choices": [
-            {
-              "id": "a",
-              "label": "디자인 A",
-              "image": "img/screens/club_a.png",
-              "try": "go=club&design=a"
-            },
-            {
-              "id": "b",
-              "label": "디자인 B",
-              "image": "img/screens/club_b.png",
-              "try": "go=club&design=b"
-            }
-          ],
-          "options": [
-            "비슷해요"
-          ],
-          "shuffle": true
-        },
-        {
-          "id": "A4",
-          "key": "A4 디자인 고른 이유",
-          "type": "text",
-          "text": "고른 이유를 한 줄로 적어 주세요.",
-          "required": false,
-          "placeholder": "한 줄이면 충분해요",
-          "showIf": {
-            "q": "A3",
-            "in": [
-              "디자인 A",
-              "디자인 B"
-            ]
-          }
         },
         {
           "id": "A5",

@@ -24,7 +24,15 @@
   var view = 'home';
   var advanceTimer = null;
 
-  M.visit('방문');
+  /* 판이 바뀌면(ROUND) 이 기기에 남은 지난 판의 체험 기록·진행을 한 번 비운다 — 옛 앱에서 본 화면이 새 판 응답의
+     _본화면·_행동 에 섞이지 않게. 끝냈다는 표시(DONE)와 못 보낸 응답(대기열)은 건드리지 않는다. */
+  var ROUND = 'user-v3';
+  if (M.local.get('moyeo.round.user') !== ROUND) {
+    [PROGRESS, TRIAL, TRY_LOG].forEach(function (k) { M.local.del(k); });
+    M.local.set('moyeo.round.user', ROUND);
+  }
+
+  M.visit("방문");
 
   /* ── 체험 ── */
   var trial = new M.Trial({
@@ -34,7 +42,6 @@
     nowPrefix: '앱 체험 중 ·',
     endLabel: '설문하기',
     endHint: '다 둘러봤으면',
-    firstHint: '모임 탭에서 디자인 A·B를 바꿔 볼 수 있어요',
     skipLabel: '기다리지 않고 설문부터 하기 →',
     missingNote: '설문은 지금 바로 할 수 있어요.',
     onOpen: function () { M.visit('체험 시작'); },
@@ -89,7 +96,13 @@
     else trial.open();
   });
 
-  function isDone() { return !!M.local.get(DONE); }
+  /* 끝냈다는 표시는 문항 판(content.id)마다 따로 본다 — 지난 판에 답한 사람도 새 판에는 다시 답할 수 있다.
+     문항을 아직 못 읽었으면(content 없음) 표시가 있는 것만으로 끝낸 것으로 본다(곧 다시 그린다). */
+  function isDone() {
+    var d = M.local.get(DONE);
+    if (!d) return false;
+    return !content || !d.id || d.id === content.id;
+  }
 
   /** 소개 화면 버튼 글씨를 지금 상황에 맞게 */
   function paintHome() {
